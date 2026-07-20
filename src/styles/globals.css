@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f2f4f7;
+  color: #0e1528;
+}
+
+h1, h2, h3, h4, .font-rajdhani {
+  font-family: 'Rajdhani', sans-serif;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg border border-steel/40 shadow-sm;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium text-sm transition-all duration-300 disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-gold text-navy hover:brightness-95 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white text-navy border border-steel hover:bg-steel/10;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-steel bg-white px-3 py-2 text-sm text-navy placeholder:text-slate focus:outline-none focus:ring-2 focus:ring-gold/40;
+  }
+
+  .label {
+    @apply block text-xs font-semibold text-navy/80 uppercase mb-1;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+}

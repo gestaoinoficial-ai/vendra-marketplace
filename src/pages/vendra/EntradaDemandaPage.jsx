@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import Button from '../../components/Common/Button'
 import { CLIENTES, TIPO_SERVICO_OPTIONS, PRIORIDADE_OPTIONS } from '../../utils/constants'
 import { geocodeAddress } from '../../services/geocodingService'
+import { dispatchOrdemServico } from '../../services/dispatchService'
 
 export default function EntradaDemandaPage() {
   const [form, setForm] = useState({
@@ -18,6 +19,8 @@ export default function EntradaDemandaPage() {
   })
   const [geocoding, setGeocoding] = useState(false)
   const [geocodeError, setGeocodeError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitResult, setSubmitResult] = useState(null)
 
   const handleAddressBlur = async () => {
     if (!form.endereco.trim()) {
@@ -47,6 +50,64 @@ export default function EntradaDemandaPage() {
     }
 
     setGeocoding(false)
+  }
+
+  const handleSubmit = async () => {
+    // Validate form
+    if (!form.cliente_id || !form.tipo_servico || !form.endereco || !form.lat || !form.lng) {
+      setSubmitResult({
+        success: false,
+        message: 'Por favor, preencha todos os campos obrigatórios',
+      })
+      return
+    }
+
+    setSubmitting(true)
+    setSubmitResult(null)
+
+    try {
+      const clienteName = CLIENTES.find((c) => c.id === form.cliente_id)?.nome || ''
+
+      const { ordem, parceirosNotificados } = await dispatchOrdemServico(form, clienteName)
+
+      setSubmitResult({
+        success: true,
+        osId: ordem.os_numero,
+        message:
+          parceirosNotificados > 0
+            ? `✅ OS ${ordem.os_numero} criada e enviada para ${parceirosNotificados} engenheiro${parceirosNotificados === 1 ? '' : 's'} próximo${parceirosNotificados === 1 ? '' : 's'}!`
+            : `⚠️ OS ${ordem.os_numero} criada, mas nenhum engenheiro foi encontrado num raio de 100km.`,
+        details: {
+          cliente: clienteName,
+          endereco: form.endereco,
+          engenheirosNotificados: parceirosNotificados,
+          timerExpiracao: '20 minutos',
+        },
+      })
+
+      // Reset form after success
+      setTimeout(() => {
+        setForm({
+          cliente_id: '',
+          tipo_servico: '',
+          descricao: '',
+          endereco: '',
+          lat: null,
+          lng: null,
+          prioridade: 'normal',
+          emergencial: false,
+          valor_estimado: '',
+        })
+        setSubmitResult(null)
+      }, 3000)
+    } catch (error) {
+      setSubmitResult({
+        success: false,
+        message: `❌ Erro ao criar OS: ${error.message}`,
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -123,11 +184,48 @@ export default function EntradaDemandaPage() {
           <input type="number" min="0" step="0.01" className="input" placeholder="0,00" value={form.valor_estimado} onChange={(e) => setForm({ ...form, valor_estimado: e.target.value })} />
         </div>
 
+        {submitResult && (
+          <div
+            className={`rounded-lg border p-4 flex gap-3 ${
+              submitResult.success
+                ? 'bg-success/10 border-success/30'
+                : 'bg-danger/10 border-danger/30'
+            }`}
+          >
+            {submitResult.success ? (
+              <CheckCircle2 size={20} className="text-success flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle size={20} className="text-danger flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className={`font-medium ${submitResult.success ? 'text-success' : 'text-danger'}`}>
+                {submitResult.message}
+              </p>
+              {submitResult.details && (
+                <div className="mt-2 text-xs text-slate space-y-1">
+                  <p>📋 Cliente: {submitResult.details.cliente}</p>
+                  <p>📍 Endereço: {submitResult.details.endereco}</p>
+                  <p>🔔 Engenheiros notificados: {submitResult.details.engenheirosNotificados}</p>
+                  <p>⏱️ Timer de expiração: {submitResult.details.timerExpiracao}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <Button
           className="w-full"
-          disabled={!form.cliente_id || !form.tipo_servico || !form.endereco || !form.lat || !form.lng || geocoding || geocodeError !== ''}
+          onClick={handleSubmit}
+          disabled={!form.cliente_id || !form.tipo_servico || !form.endereco || !form.lat || !form.lng || geocoding || geocodeError !== '' || submitting}
         >
-          Enviar para Engenheiros Próximos
+          {submitting ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              Criando OS...
+            </>
+          ) : (
+            'Enviar para Engenheiros Próximos'
+          )}
         </Button>
       </div>
     </div>

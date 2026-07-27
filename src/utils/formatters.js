@@ -23,12 +23,51 @@ export function formatCountdown(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-export function whatsappLink(telefone) {
+export function whatsappLink(telefone, message) {
   if (!telefone) return null
   const digits = telefone.replace(/\D/g, '')
   if (!digits) return null
   const withCountryCode = digits.startsWith('55') ? digits : `55${digits}`
-  return `https://wa.me/${withCountryCode}`
+  const base = `https://wa.me/${withCountryCode}`
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base
+}
+
+export function optionLabel(options, value) {
+  return options.find((option) => option.value === value)?.label ?? value ?? '—'
+}
+
+export function buildDispatchMessage({
+  parceiroNome,
+  numeroOs,
+  clienteNome,
+  endereco,
+  criticidade,
+  criticidadeLabel,
+  tipoOcorrenciaLabel,
+  descricao,
+}) {
+  const lines = [
+    `Olá ${parceiroNome}! Temos uma nova demanda para você:`,
+    '',
+    `📋 OS: ${numeroOs}`,
+    `🏢 Cliente: ${clienteNome}`,
+    `📍 Endereço: ${endereco}`,
+    `⚠️ Criticidade: ${criticidadeLabel}`,
+    `🔧 Ocorrência: ${tipoOcorrenciaLabel}`,
+  ]
+
+  if (descricao && descricao.trim()) {
+    lines.push(`📝 Descrição: ${descricao.trim()}`)
+  }
+
+  lines.push('')
+  lines.push(
+    criticidade === 'manutencao_emergencial'
+      ? 'Você tem 20 minutos para confirmar disponibilidade. Pode atender?'
+      : 'Por favor, confirme sua disponibilidade assim que possível.'
+  )
+
+  return lines.join('\n')
 }
 
 export function getInitials(name) {

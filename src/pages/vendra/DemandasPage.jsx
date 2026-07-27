@@ -3,8 +3,8 @@ import { AlertCircle, Loader2, MessageCircle, RefreshCw } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import StatusBadge from '../../components/Common/StatusBadge'
 import Button from '../../components/Common/Button'
-import { OS_STATUS, PROPOSTA_STATUS } from '../../utils/constants'
-import { formatDate, whatsappLink } from '../../utils/formatters'
+import { CRITICIDADE_OPTIONS, OS_STATUS, PROPOSTA_STATUS, TIPO_OCORRENCIA_OPTIONS } from '../../utils/constants'
+import { buildDispatchMessage, formatDate, optionLabel, whatsappLink } from '../../utils/formatters'
 
 async function fetchDemandas() {
   const { data: ordens, error: ordensError } = await supabase
@@ -56,10 +56,21 @@ function proposalEffectiveStatus(proposta) {
   return isExpired ? 'expirada' : proposta.status
 }
 
-function ParceiroRow({ proposta }) {
+function ParceiroRow({ proposta, os }) {
   const parceiro = proposta.parceiro
   const nome = parceiro?.nome_fantasia || parceiro?.nome_empresario || 'Parceiro removido'
-  const link = whatsappLink(parceiro?.telefone)
+
+  const message = buildDispatchMessage({
+    parceiroNome: nome,
+    numeroOs: os.numero_os,
+    clienteNome: os.clienteNome,
+    endereco: os.endereco_completo || '—',
+    criticidade: os.criticidade,
+    criticidadeLabel: optionLabel(CRITICIDADE_OPTIONS, os.criticidade),
+    tipoOcorrenciaLabel: optionLabel(TIPO_OCORRENCIA_OPTIONS, os.tipo_ocorrencia),
+    descricao: os.descricao,
+  })
+  const link = whatsappLink(parceiro?.telefone, message)
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-steel/10 px-3 py-2 text-sm">
@@ -114,7 +125,7 @@ function OSCard({ os }) {
         ) : (
           <div className="space-y-2">
             {os.propostas.map((proposta) => (
-              <ParceiroRow key={proposta.id} proposta={proposta} />
+              <ParceiroRow key={proposta.id} proposta={proposta} os={os} />
             ))}
           </div>
         )}

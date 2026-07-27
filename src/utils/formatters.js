@@ -23,6 +23,14 @@ export function formatCountdown(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+export function whatsappLink(telefone) {
+  if (!telefone) return null
+  const digits = telefone.replace(/\D/g, '')
+  if (!digits) return null
+  const withCountryCode = digits.startsWith('55') ? digits : `55${digits}`
+  return `https://wa.me/${withCountryCode}`
+}
+
 export function getInitials(name) {
   if (!name) return '?'
   return name

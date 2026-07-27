@@ -2,29 +2,32 @@ import { supabase } from './supabase'
 import { haversineDistance } from './geocodingService'
 import { DISPATCH_RADIUS_KM, PROPOSAL_TIMEOUT_MINUTES } from '../utils/constants'
 
-function generateOsNumero() {
+function generateNumeroOs() {
   const now = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   return `OS-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
 }
 
-async function createOrdemServico(form, clienteNome) {
-  const os_numero = generateOsNumero()
+async function createOrdemServico(form, clienteId) {
+  const numero_os = generateNumeroOs()
 
   const { data, error } = await supabase
     .from('ordens_servico')
     .insert({
-      os_numero,
-      cliente_nome: clienteNome,
+      numero_os,
+      cliente_id: clienteId,
       tipo_servico: form.tipo_servico,
-      descricao: form.descricao || null,
-      endereco: form.endereco,
+      descricao: form.descricao,
+      endereco_completo: form.endereco,
       latitude: form.lat,
       longitude: form.lng,
       prioridade: form.emergencial ? 'emergencial' : form.prioridade,
-      emergencial: form.emergencial,
       valor_estimado: form.valor_estimado ? Number(form.valor_estimado) : null,
       status: 'enviada',
+      criticidade: form.criticidade,
+      tipo_ocorrencia: form.tipo_ocorrencia,
+      grau: form.grau,
+      prognose: form.prognose,
     })
     .select()
     .single()
@@ -78,8 +81,8 @@ async function criarPropostas(osId, parceirosProximos) {
  * 2. Busca parceiros dentro do raio (Haversine)
  * 3. Cria uma proposta_os para cada parceiro encontrado
  */
-export async function dispatchOrdemServico(form, clienteNome) {
-  const ordem = await createOrdemServico(form, clienteNome)
+export async function dispatchOrdemServico(form, clienteId) {
+  const ordem = await createOrdemServico(form, clienteId)
   const parceirosProximos = await findParceirosProximos(form.lat, form.lng)
   const propostas = await criarPropostas(ordem.id, parceirosProximos)
 

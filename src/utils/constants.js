@@ -43,13 +43,37 @@ export const TIPO_SERVICO_OPTIONS = [
   { value: 'orcamento', label: 'Orçamento' },
 ]
 
-export const CLIENTES = [
-  { id: 'bradesco', nome: 'Bradesco' },
-  { id: 'localiza', nome: 'Localiza' },
-  { id: 'shopee', nome: 'Shopee' },
-  { id: 'renner', nome: 'Renner' },
-  { id: 'cushman', nome: 'Cushman' },
-  { id: 'universal', nome: 'Universal' },
+export const CRITICIDADE_OPTIONS = [
+  { value: 'manutencao_emergencial', label: 'Manutenção Emergencial' },
+  { value: 'manutencao_nao_emergencial', label: 'Manutenção Não-Emergencial' },
+]
+
+export const TIPO_OCORRENCIA_OPTIONS = [
+  { value: 'vazamento_cronico', label: 'Vazamento Crônico' },
+  { value: 'vandalismo', label: 'Vandalismo' },
+  { value: 'incendio', label: 'Incêndio' },
+  { value: 'curto_circuito', label: 'Curto Circuito' },
+  { value: 'inundacao', label: 'Inundação' },
+  { value: 'alagamento', label: 'Alagamento' },
+  { value: 'operacao', label: 'Operação' },
+  { value: 'acao_orgao_controlador', label: 'Ação de Órgão Controlador' },
+  { value: 'outros', label: 'Outros' },
+]
+
+export const GRAU_OPTIONS = [
+  { value: 'alto', label: 'Alto' },
+  { value: 'medio', label: 'Médio' },
+  { value: 'baixo', label: 'Baixo' },
+]
+
+export const PROGNOSE_OPTIONS = [
+  { value: 'falta_manutencao', label: 'Falta de Manutenção' },
+  { value: 'desgaste_natural', label: 'Desgaste Natural' },
+  { value: 'explosao', label: 'Explosão' },
+  { value: 'vandalismo', label: 'Vandalismo' },
+  { value: 'intemperies', label: 'Intempéries' },
+  { value: 'incendio', label: 'Incêndio' },
+  { value: 'outros', label: 'Outros' },
 ]
 
 export const PROPOSAL_TIMEOUT_MINUTES = 20

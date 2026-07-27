@@ -1,9 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import Button from '../../components/Common/Button'
-import { CLIENTES, TIPO_SERVICO_OPTIONS, PRIORIDADE_OPTIONS } from '../../utils/constants'
+import {
+  TIPO_SERVICO_OPTIONS,
+  PRIORIDADE_OPTIONS,
+  CRITICIDADE_OPTIONS,
+  TIPO_OCORRENCIA_OPTIONS,
+  GRAU_OPTIONS,
+  PROGNOSE_OPTIONS,
+} from '../../utils/constants'
 import { geocodeAddress } from '../../services/geocodingService'
 import { dispatchOrdemServico } from '../../services/dispatchService'
+import { supabase } from '../../services/supabase'
 
 export default function EntradaDemandaPage() {
   const [form, setForm] = useState({
@@ -16,11 +24,33 @@ export default function EntradaDemandaPage() {
     prioridade: 'normal',
     emergencial: false,
     valor_estimado: '',
+    criticidade: '',
+    tipo_ocorrencia: '',
+    grau: '',
+    prognose: '',
   })
+  const [clientes, setClientes] = useState([])
+  const [loadingClientes, setLoadingClientes] = useState(true)
   const [geocoding, setGeocoding] = useState(false)
   const [geocodeError, setGeocodeError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitResult, setSubmitResult] = useState(null)
+
+  useEffect(() => {
+    async function fetchClientes() {
+      setLoadingClientes(true)
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome')
+        .eq('status', 'ativo')
+        .order('nome', { ascending: true })
+
+      if (!error) setClientes(data || [])
+      setLoadingClientes(false)
+    }
+
+    fetchClientes()
+  }, [])
 
   const handleAddressBlur = async () => {
     if (!form.endereco.trim()) {
@@ -54,7 +84,18 @@ export default function EntradaDemandaPage() {
 
   const handleSubmit = async () => {
     // Validate form
-    if (!form.cliente_id || !form.tipo_servico || !form.endereco || !form.lat || !form.lng) {
+    if (
+      !form.cliente_id ||
+      !form.tipo_servico ||
+      !form.descricao.trim() ||
+      !form.endereco ||
+      !form.lat ||
+      !form.lng ||
+      !form.criticidade ||
+      !form.tipo_ocorrencia ||
+      !form.grau ||
+      !form.prognose
+    ) {
       setSubmitResult({
         success: false,
         message: 'Por favor, preencha todos os campos obrigatórios',
@@ -66,17 +107,17 @@ export default function EntradaDemandaPage() {
     setSubmitResult(null)
 
     try {
-      const clienteName = CLIENTES.find((c) => c.id === form.cliente_id)?.nome || ''
+      const clienteName = clientes.find((c) => c.id === form.cliente_id)?.nome || ''
 
-      const { ordem, parceirosNotificados } = await dispatchOrdemServico(form, clienteName)
+      const { ordem, parceirosNotificados } = await dispatchOrdemServico(form, form.cliente_id)
 
       setSubmitResult({
         success: true,
-        osId: ordem.os_numero,
+        osId: ordem.numero_os,
         message:
           parceirosNotificados > 0
-            ? `✅ OS ${ordem.os_numero} criada e enviada para ${parceirosNotificados} engenheiro${parceirosNotificados === 1 ? '' : 's'} próximo${parceirosNotificados === 1 ? '' : 's'}!`
-            : `⚠️ OS ${ordem.os_numero} criada, mas nenhum engenheiro foi encontrado num raio de 100km.`,
+            ? `✅ OS ${ordem.numero_os} criada e enviada para ${parceirosNotificados} engenheiro${parceirosNotificados === 1 ? '' : 's'} próximo${parceirosNotificados === 1 ? '' : 's'}!`
+            : `⚠️ OS ${ordem.numero_os} criada, mas nenhum engenheiro foi encontrado num raio de 100km.`,
         details: {
           cliente: clienteName,
           endereco: form.endereco,
@@ -97,6 +138,10 @@ export default function EntradaDemandaPage() {
           prioridade: 'normal',
           emergencial: false,
           valor_estimado: '',
+          criticidade: '',
+          tipo_ocorrencia: '',
+          grau: '',
+          prognose: '',
         })
         setSubmitResult(null)
       }, 3000)
@@ -121,9 +166,14 @@ export default function EntradaDemandaPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="label">Cliente</label>
-            <select className="input" value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })}>
-              <option value="">Selecione um cliente</option>
-              {CLIENTES.map((c) => (
+            <select
+              className="input"
+              value={form.cliente_id}
+              onChange={(e) => setForm({ ...form, cliente_id: e.target.value })}
+              disabled={loadingClientes}
+            >
+              <option value="">{loadingClientes ? 'Carregando clientes...' : 'Selecione um cliente'}</option>
+              {clientes.map((c) => (
                 <option key={c.id} value={c.id}>{c.nome}</option>
               ))}
             </select>
@@ -134,6 +184,48 @@ export default function EntradaDemandaPage() {
               <option value="">Selecione</option>
               {TIPO_SERVICO_OPTIONS.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Criticidade</label>
+            <select className="input" value={form.criticidade} onChange={(e) => setForm({ ...form, criticidade: e.target.value })}>
+              <option value="">Selecione</option>
+              {CRITICIDADE_OPTIONS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Tipo de Ocorrência</label>
+            <select className="input" value={form.tipo_ocorrencia} onChange={(e) => setForm({ ...form, tipo_ocorrencia: e.target.value })}>
+              <option value="">Selecione</option>
+              {TIPO_OCORRENCIA_OPTIONS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Grau</label>
+            <select className="input" value={form.grau} onChange={(e) => setForm({ ...form, grau: e.target.value })}>
+              <option value="">Selecione</option>
+              {GRAU_OPTIONS.map((g) => (
+                <option key={g.value} value={g.value}>{g.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Prognóse</label>
+            <select className="input" value={form.prognose} onChange={(e) => setForm({ ...form, prognose: e.target.value })}>
+              <option value="">Selecione</option>
+              {PROGNOSE_OPTIONS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
           </div>
@@ -216,7 +308,21 @@ export default function EntradaDemandaPage() {
         <Button
           className="w-full"
           onClick={handleSubmit}
-          disabled={!form.cliente_id || !form.tipo_servico || !form.endereco || !form.lat || !form.lng || geocoding || geocodeError !== '' || submitting}
+          disabled={
+            !form.cliente_id ||
+            !form.tipo_servico ||
+            !form.descricao.trim() ||
+            !form.endereco ||
+            !form.lat ||
+            !form.lng ||
+            !form.criticidade ||
+            !form.tipo_ocorrencia ||
+            !form.grau ||
+            !form.prognose ||
+            geocoding ||
+            geocodeError !== '' ||
+            submitting
+          }
         >
           {submitting ? (
             <>

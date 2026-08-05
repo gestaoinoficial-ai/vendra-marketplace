@@ -52,8 +52,8 @@ export function buildDispatchMessage({
     `📋 OS: ${numeroOs}`,
     `🏢 Cliente: ${clienteNome}`,
     `📍 Endereço: ${endereco}`,
-    `⚠️ Criticidade: ${criticidadeLabel}`,
-    `🔧 Ocorrência: ${tipoOcorrenciaLabel}`,
+    `⚠️ Prioridade: ${criticidadeLabel}`,
+    `🔧 Escopo: ${tipoOcorrenciaLabel}`,
   ]
 
   if (descricao && descricao.trim()) {
@@ -62,7 +62,7 @@ export function buildDispatchMessage({
 
   lines.push('')
   lines.push(
-    criticidade === 'manutencao_emergencial'
+    criticidade === 'emergencial'
       ? 'Você tem 20 minutos para confirmar disponibilidade. Pode atender?'
       : 'Por favor, confirme sua disponibilidade assim que possível.'
   )

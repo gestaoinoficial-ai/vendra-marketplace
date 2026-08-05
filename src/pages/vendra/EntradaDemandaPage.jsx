@@ -3,11 +3,8 @@ import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import Button from '../../components/Common/Button'
 import {
   TIPO_SERVICO_OPTIONS,
-  PRIORIDADE_OPTIONS,
   CRITICIDADE_OPTIONS,
   TIPO_OCORRENCIA_OPTIONS,
-  GRAU_OPTIONS,
-  PROGNOSE_OPTIONS,
 } from '../../utils/constants'
 import { geocodeAddress } from '../../services/geocodingService'
 import { dispatchOrdemServico } from '../../services/dispatchService'
@@ -21,13 +18,10 @@ export default function EntradaDemandaPage() {
     endereco: '',
     lat: null,
     lng: null,
-    prioridade: 'normal',
-    emergencial: false,
     valor_estimado: '',
     criticidade: '',
     tipo_ocorrencia: '',
-    grau: '',
-    prognose: '',
+    tipo_ocorrencia_outro: '',
   })
   const [clientes, setClientes] = useState([])
   const [loadingClientes, setLoadingClientes] = useState(true)
@@ -93,8 +87,7 @@ export default function EntradaDemandaPage() {
       !form.lng ||
       !form.criticidade ||
       !form.tipo_ocorrencia ||
-      !form.grau ||
-      !form.prognose
+      (form.tipo_ocorrencia === 'outros' && !form.tipo_ocorrencia_outro.trim())
     ) {
       setSubmitResult({
         success: false,
@@ -135,13 +128,10 @@ export default function EntradaDemandaPage() {
           endereco: '',
           lat: null,
           lng: null,
-          prioridade: 'normal',
-          emergencial: false,
           valor_estimado: '',
           criticidade: '',
           tipo_ocorrencia: '',
-          grau: '',
-          prognose: '',
+          tipo_ocorrencia_outro: '',
         })
         setSubmitResult(null)
       }, 3000)
@@ -191,7 +181,7 @@ export default function EntradaDemandaPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="label">Criticidade</label>
+            <label className="label">Prioridade</label>
             <select className="input" value={form.criticidade} onChange={(e) => setForm({ ...form, criticidade: e.target.value })}>
               <option value="">Selecione</option>
               {CRITICIDADE_OPTIONS.map((c) => (
@@ -200,7 +190,7 @@ export default function EntradaDemandaPage() {
             </select>
           </div>
           <div>
-            <label className="label">Tipo de Ocorrência</label>
+            <label className="label">Escopo da Vistoria</label>
             <select className="input" value={form.tipo_ocorrencia} onChange={(e) => setForm({ ...form, tipo_ocorrencia: e.target.value })}>
               <option value="">Selecione</option>
               {TIPO_OCORRENCIA_OPTIONS.map((t) => (
@@ -210,26 +200,18 @@ export default function EntradaDemandaPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        {form.tipo_ocorrencia === 'outros' && (
           <div>
-            <label className="label">Grau</label>
-            <select className="input" value={form.grau} onChange={(e) => setForm({ ...form, grau: e.target.value })}>
-              <option value="">Selecione</option>
-              {GRAU_OPTIONS.map((g) => (
-                <option key={g.value} value={g.value}>{g.label}</option>
-              ))}
-            </select>
+            <label className="label">Descreva o escopo</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="Descreva o escopo da vistoria"
+              value={form.tipo_ocorrencia_outro}
+              onChange={(e) => setForm({ ...form, tipo_ocorrencia_outro: e.target.value })}
+            />
           </div>
-          <div>
-            <label className="label">Prognóse</label>
-            <select className="input" value={form.prognose} onChange={(e) => setForm({ ...form, prognose: e.target.value })}>
-              <option value="">Selecione</option>
-              {PROGNOSE_OPTIONS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        )}
 
         <div>
           <label className="label">Descrição</label>
@@ -253,23 +235,6 @@ export default function EntradaDemandaPage() {
           {geocodeError && <p className="mt-1 text-sm text-danger">{geocodeError}</p>}
           {form.lat && form.lng && !geocodeError && <p className="mt-1 text-xs text-success">✓ Localização geocodificada</p>}
         </div>
-
-        <div>
-          <label className="label">Prioridade</label>
-          <div className="flex gap-4">
-            {PRIORIDADE_OPTIONS.map((p) => (
-              <label key={p.value} className="flex items-center gap-2 text-sm">
-                <input type="radio" name="prioridade" value={p.value} checked={form.prioridade === p.value} onChange={(e) => setForm({ ...form, prioridade: e.target.value })} />
-                {p.label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={form.emergencial} onChange={(e) => setForm({ ...form, emergencial: e.target.checked })} />
-          Marcar como emergencial
-        </label>
 
         <div>
           <label className="label">Valor Estimado (R$)</label>
@@ -317,8 +282,7 @@ export default function EntradaDemandaPage() {
             !form.lng ||
             !form.criticidade ||
             !form.tipo_ocorrencia ||
-            !form.grau ||
-            !form.prognose ||
+            (form.tipo_ocorrencia === 'outros' && !form.tipo_ocorrencia_outro.trim()) ||
             geocoding ||
             geocodeError !== '' ||
             submitting

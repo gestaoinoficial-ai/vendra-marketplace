@@ -21,13 +21,11 @@ async function createOrdemServico(form, clienteId) {
       endereco_completo: form.endereco,
       latitude: form.lat,
       longitude: form.lng,
-      prioridade: form.emergencial ? 'emergencial' : form.prioridade,
       valor_estimado: form.valor_estimado ? Number(form.valor_estimado) : null,
-      status: 'enviada',
+      status: 'pendente',
       criticidade: form.criticidade,
       tipo_ocorrencia: form.tipo_ocorrencia,
-      grau: form.grau,
-      prognose: form.prognose,
+      tipo_ocorrencia_outro: form.tipo_ocorrencia === 'outros' ? form.tipo_ocorrencia_outro : null,
     })
     .select()
     .single()

@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, Loader2, MessageCircle, RefreshCw } from 'lucide-react'
+import { AlertCircle, Loader2, MessageCircle, Paperclip, RefreshCw } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import StatusBadge from '../../components/Common/StatusBadge'
 import Button from '../../components/Common/Button'
-import { CRITICIDADE_OPTIONS, OS_STATUS, PROPOSTA_STATUS, TIPO_OCORRENCIA_OPTIONS } from '../../utils/constants'
+import { CRITICIDADE_OPTIONS, OS_STATUS, OS_STATUS_ORDER, PROPOSTA_STATUS, TIPO_OCORRENCIA_OPTIONS } from '../../utils/constants'
 import { buildDispatchMessage, formatDate, optionLabel, whatsappLink } from '../../utils/formatters'
 
-async function fetchDemandas() {
-  const { data: ordens, error: ordensError } = await supabase
+const RELATORIO_BUCKET = 'relatorios-os'
+
+async function fetchDemandas(tab) {
+  let ordensQuery = supabase
     .from('ordens_servico')
     .select('*')
     .order('data_criacao', { ascending: false })
+
+  ordensQuery =
+    tab === 'concluidas' ? ordensQuery.eq('status', 'aceito_cliente') : ordensQuery.neq('status', 'aceito_cliente')
+
+  const { data: ordens, error: ordensError } = await ordensQuery
   if (ordensError) throw ordensError
 
   const clienteIds = [...new Set(ordens.map((o) => o.cliente_id).filter(Boolean))]
@@ -56,6 +63,12 @@ function proposalEffectiveStatus(proposta) {
   return isExpired ? 'expirada' : proposta.status
 }
 
+function tipoOcorrenciaLabel(os) {
+  return os.tipo_ocorrencia === 'outros' && os.tipo_ocorrencia_outro
+    ? os.tipo_ocorrencia_outro
+    : optionLabel(TIPO_OCORRENCIA_OPTIONS, os.tipo_ocorrencia)
+}
+
 function ParceiroRow({ proposta, os }) {
   const parceiro = proposta.parceiro
   const nome = parceiro?.nome_fantasia || parceiro?.nome_empresario || 'Parceiro removido'
@@ -67,7 +80,7 @@ function ParceiroRow({ proposta, os }) {
     endereco: os.endereco_completo || '—',
     criticidade: os.criticidade,
     criticidadeLabel: optionLabel(CRITICIDADE_OPTIONS, os.criticidade),
-    tipoOcorrenciaLabel: optionLabel(TIPO_OCORRENCIA_OPTIONS, os.tipo_ocorrencia),
+    tipoOcorrenciaLabel: tipoOcorrenciaLabel(os),
     descricao: os.descricao,
   })
   const link = whatsappLink(parceiro?.telefone, message)
@@ -100,7 +113,45 @@ function ParceiroRow({ proposta, os }) {
   )
 }
 
-function OSCard({ os }) {
+function OSCard({ os, onAdvance, onAttachRelatorio }) {
+  const [file, setFile] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState('')
+
+  const currentIndex = OS_STATUS_ORDER.indexOf(os.status)
+  const nextStatus =
+    currentIndex >= 0 && currentIndex < OS_STATUS_ORDER.length - 1 ? OS_STATUS_ORDER[currentIndex + 1] : null
+
+  const handleAdvanceClick = async () => {
+    if (!nextStatus) return
+    setActionError('')
+
+    if (nextStatus === 'relatorio_recebido') {
+      if (!file) {
+        setActionError('Selecione o arquivo do relatório antes de avançar.')
+        return
+      }
+      setBusy(true)
+      try {
+        await onAttachRelatorio(os, file)
+      } catch (err) {
+        setActionError(err.message)
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+
+    setBusy(true)
+    try {
+      await onAdvance(os, nextStatus)
+    } catch (err) {
+      setActionError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="card p-5">
       <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
@@ -111,9 +162,22 @@ function OSCard({ os }) {
         <StatusBadge statusKey={os.status} statusMap={OS_STATUS} />
       </div>
 
-      <p className="mb-4 text-sm text-slate">
+      <p className="mb-1 text-sm text-slate">
         🏢 {os.clienteNome} · 📍 {os.endereco_completo || '—'}
       </p>
+      <p className="mb-4 text-xs text-slate">🔧 {tipoOcorrenciaLabel(os)}</p>
+
+      {os.relatorio_url && (
+        <a
+          href={os.relatorio_url}
+          target="_blank"
+          rel="noreferrer"
+          className="mb-4 flex items-center gap-1 text-xs text-blue hover:underline"
+        >
+          <Paperclip size={13} />
+          Ver relatório anexado
+        </a>
+      )}
 
       <div className="border-t border-steel/30 pt-3">
         <p className="mb-2 text-xs font-semibold uppercase text-slate">
@@ -130,11 +194,29 @@ function OSCard({ os }) {
           </div>
         )}
       </div>
+
+      {nextStatus && (
+        <div className="mt-3 border-t border-steel/30 pt-3 flex flex-wrap items-center gap-2">
+          {nextStatus === 'relatorio_recebido' && (
+            <input
+              type="file"
+              className="max-w-[220px] text-xs"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          )}
+          <Button variant="secondary" onClick={handleAdvanceClick} disabled={busy}>
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            Avançar para: {OS_STATUS[nextStatus].label}
+          </Button>
+          {actionError && <p className="w-full text-xs text-danger">{actionError}</p>}
+        </div>
+      )}
     </div>
   )
 }
 
 export default function DemandasPage() {
+  const [tab, setTab] = useState('ativas')
   const [ordens, setOrdens] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -143,7 +225,7 @@ export default function DemandasPage() {
     setLoading(true)
     setError('')
     try {
-      const data = await fetchDemandas()
+      const data = await fetchDemandas(tab)
       setOrdens(data)
     } catch (err) {
       setError(err.message)
@@ -154,7 +236,36 @@ export default function DemandasPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [tab])
+
+  async function advanceStatus(os, nextStatus) {
+    const patch = { status: nextStatus }
+    const timestampField = OS_STATUS[nextStatus]?.timestampField
+    if (timestampField) patch[timestampField] = new Date().toISOString()
+
+    const { error: updateError } = await supabase.from('ordens_servico').update(patch).eq('id', os.id)
+    if (updateError) throw new Error(updateError.message)
+    await loadData()
+  }
+
+  async function attachRelatorio(os, file) {
+    const path = `${os.numero_os}/${Date.now()}-${file.name}`
+    const { error: uploadError } = await supabase.storage.from(RELATORIO_BUCKET).upload(path, file)
+    if (uploadError) throw new Error(uploadError.message)
+
+    const { data: urlData } = supabase.storage.from(RELATORIO_BUCKET).getPublicUrl(path)
+
+    const { error: updateError } = await supabase
+      .from('ordens_servico')
+      .update({
+        status: 'relatorio_recebido',
+        relatorio_recebido_em: new Date().toISOString(),
+        relatorio_url: urlData.publicUrl,
+      })
+      .eq('id', os.id)
+    if (updateError) throw new Error(updateError.message)
+    await loadData()
+  }
 
   return (
     <div className="space-y-4">
@@ -169,6 +280,25 @@ export default function DemandasPage() {
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           Atualizar
         </Button>
+      </div>
+
+      <div className="flex gap-4 border-b border-steel/30">
+        <button
+          onClick={() => setTab('ativas')}
+          className={`px-2 pb-2 text-sm font-medium transition-colors ${
+            tab === 'ativas' ? 'border-b-2 border-gold text-gold' : 'text-slate hover:text-navy'
+          }`}
+        >
+          Ativas
+        </button>
+        <button
+          onClick={() => setTab('concluidas')}
+          className={`px-2 pb-2 text-sm font-medium transition-colors ${
+            tab === 'concluidas' ? 'border-b-2 border-success text-success' : 'text-slate hover:text-navy'
+          }`}
+        >
+          Concluídas
+        </button>
       </div>
 
       {loading && ordens.length === 0 && (
@@ -186,12 +316,14 @@ export default function DemandasPage() {
       )}
 
       {!loading && !error && ordens.length === 0 && (
-        <div className="card p-12 text-center text-slate">Nenhuma OS encontrada.</div>
+        <div className="card p-12 text-center text-slate">
+          {tab === 'concluidas' ? 'Nenhuma OS concluída.' : 'Nenhuma OS ativa encontrada.'}
+        </div>
       )}
 
       <div className="space-y-4">
         {ordens.map((os) => (
-          <OSCard key={os.id} os={os} />
+          <OSCard key={os.id} os={os} onAdvance={advanceStatus} onAttachRelatorio={attachRelatorio} />
         ))}
       </div>
     </div>

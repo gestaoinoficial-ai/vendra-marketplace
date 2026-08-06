@@ -37,6 +37,7 @@ export default function EntradaDemandaPage() {
         .from('clientes')
         .select('id, nome')
         .eq('status', 'ativo')
+        .eq('ativo_piloto', true)
         .order('nome', { ascending: true })
 
       if (!error) setClientes(data || [])

@@ -49,15 +49,15 @@ export function buildDispatchMessage({
   const lines = [
     `Olá ${parceiroNome}! Temos uma nova demanda para você:`,
     '',
-    `📋 OS: ${numeroOs}`,
-    `🏢 Cliente: ${clienteNome}`,
-    `📍 Endereço: ${endereco}`,
-    `⚠️ Prioridade: ${criticidadeLabel}`,
-    `🔧 Escopo: ${tipoOcorrenciaLabel}`,
+    `OS: ${numeroOs}`,
+    `Cliente: ${clienteNome}`,
+    `Endereço: ${endereco}`,
+    `Prioridade: ${criticidadeLabel}`,
+    `Escopo: ${tipoOcorrenciaLabel}`,
   ]
 
   if (descricao && descricao.trim()) {
-    lines.push(`📝 Descrição: ${descricao.trim()}`)
+    lines.push(`Descrição: ${descricao.trim()}`)
   }
 
   lines.push('')

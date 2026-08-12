@@ -1,4 +1,34 @@
-export const geocodeAddress = async (address) => {
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+
+async function geocodeWithGoogle(address) {
+  if (!GOOGLE_MAPS_API_KEY) {
+    return { success: false, error: 'Chave da API do Google Maps não configurada' }
+  }
+
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+    )
+    const data = await response.json()
+
+    if (data.status === 'OK' && data.results && data.results[0]) {
+      const result = data.results[0]
+      return {
+        success: true,
+        latitude: result.geometry.location.lat,
+        longitude: result.geometry.location.lng,
+        displayName: result.formatted_address,
+        source: 'google',
+      }
+    }
+
+    return { success: false, error: `Google Geocoding: ${data.status}` }
+  } catch (error) {
+    return { success: false, error: 'Erro ao geocodificar via Google: ' + error.message }
+  }
+}
+
+async function geocodeWithNominatim(address) {
   try {
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`
@@ -11,18 +41,32 @@ export const geocodeAddress = async (address) => {
         latitude: parseFloat(data[0].lat),
         longitude: parseFloat(data[0].lon),
         displayName: data[0].display_name,
-      }
-    } else {
-      return {
-        success: false,
-        error: 'Endereço não encontrado',
+        source: 'nominatim',
       }
     }
+
+    return { success: false, error: 'Endereço não encontrado (Nominatim)' }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Erro ao geocodificar: ' + error.message,
-    }
+    return { success: false, error: 'Erro ao geocodificar via Nominatim: ' + error.message }
+  }
+}
+
+/**
+ * Tenta geocodificar via Google Geocoding API; se falhar (chave ausente,
+ * sem resultado, erro de rede), cai para o Nominatim (OpenStreetMap).
+ * Se ambos falharem, retorna success: false para que o chamador decida
+ * seguir sem coordenadas.
+ */
+export const geocodeAddress = async (address) => {
+  const googleResult = await geocodeWithGoogle(address)
+  if (googleResult.success) return googleResult
+
+  const nominatimResult = await geocodeWithNominatim(address)
+  if (nominatimResult.success) return nominatimResult
+
+  return {
+    success: false,
+    error: 'Endereço não encontrado',
   }
 }
 

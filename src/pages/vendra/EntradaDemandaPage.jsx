@@ -66,7 +66,11 @@ export default function EntradaDemandaPage() {
       }))
       setGeocodeError('')
     } else {
-      setGeocodeError('⚠️ Endereço não encontrado. Verifique e tente novamente.')
+      // Não bloqueia o operador: a OS pode ser criada sem coordenadas,
+      // mas o dispatch automático por raio não vai funcionar nesse caso.
+      setGeocodeError(
+        '⚠️ Não foi possível localizar este endereço automaticamente. Você pode continuar, mas nenhum parceiro será notificado por proximidade — confira o endereço ou atribua manualmente depois.'
+      )
       setForm((prev) => ({
         ...prev,
         lat: null,
@@ -84,8 +88,6 @@ export default function EntradaDemandaPage() {
       !form.tipo_servico ||
       !form.descricao.trim() ||
       !form.endereco ||
-      !form.lat ||
-      !form.lng ||
       !form.criticidade ||
       !form.tipo_ocorrencia ||
       (form.tipo_ocorrencia === 'outros' && !form.tipo_ocorrencia_outro.trim())
@@ -103,13 +105,16 @@ export default function EntradaDemandaPage() {
     try {
       const clienteName = clientes.find((c) => c.id === form.cliente_id)?.nome || ''
 
+      const semCoordenadas = !form.lat || !form.lng
       const { ordem, parceirosNotificados } = await dispatchOrdemServico(form, form.cliente_id)
 
       setSubmitResult({
         success: true,
+        warning: semCoordenadas,
         osId: ordem.numero_os,
-        message:
-          parceirosNotificados > 0
+        message: semCoordenadas
+          ? `⚠️ OS ${ordem.numero_os} criada sem geocodificação automática. Nenhum parceiro foi notificado por proximidade — atribua manualmente.`
+          : parceirosNotificados > 0
             ? `✅ OS ${ordem.numero_os} criada e enviada para ${parceirosNotificados} engenheiro${parceirosNotificados === 1 ? '' : 's'} próximo${parceirosNotificados === 1 ? '' : 's'}!`
             : `⚠️ OS ${ordem.numero_os} criada, mas nenhum engenheiro foi encontrado num raio de 100km.`,
         details: {
@@ -224,7 +229,7 @@ export default function EntradaDemandaPage() {
           <div className="relative">
             <input
               type="text"
-              className={`input pr-10 ${geocodeError ? 'border-danger' : ''}`}
+              className={`input pr-10 ${geocodeError ? 'border-amber' : ''}`}
               placeholder="Rua, número, bairro, cidade"
               value={form.endereco}
               onChange={(e) => setForm({ ...form, endereco: e.target.value })}
@@ -233,7 +238,7 @@ export default function EntradaDemandaPage() {
             />
             {geocoding && <Loader2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate" />}
           </div>
-          {geocodeError && <p className="mt-1 text-sm text-danger">{geocodeError}</p>}
+          {geocodeError && <p className="mt-1 text-sm text-amber">{geocodeError}</p>}
           {form.lat && form.lng && !geocodeError && <p className="mt-1 text-xs text-success">✓ Localização geocodificada</p>}
         </div>
 
@@ -245,18 +250,26 @@ export default function EntradaDemandaPage() {
         {submitResult && (
           <div
             className={`rounded-lg border p-4 flex gap-3 ${
-              submitResult.success
-                ? 'bg-success/10 border-success/30'
-                : 'bg-danger/10 border-danger/30'
+              !submitResult.success
+                ? 'bg-danger/10 border-danger/30'
+                : submitResult.warning
+                  ? 'bg-amber/10 border-amber/30'
+                  : 'bg-success/10 border-success/30'
             }`}
           >
-            {submitResult.success ? (
-              <CheckCircle2 size={20} className="text-success flex-shrink-0 mt-0.5" />
-            ) : (
+            {!submitResult.success ? (
               <AlertCircle size={20} className="text-danger flex-shrink-0 mt-0.5" />
+            ) : submitResult.warning ? (
+              <AlertCircle size={20} className="text-amber flex-shrink-0 mt-0.5" />
+            ) : (
+              <CheckCircle2 size={20} className="text-success flex-shrink-0 mt-0.5" />
             )}
             <div className="flex-1">
-              <p className={`font-medium ${submitResult.success ? 'text-success' : 'text-danger'}`}>
+              <p
+                className={`font-medium ${
+                  !submitResult.success ? 'text-danger' : submitResult.warning ? 'text-amber' : 'text-success'
+                }`}
+              >
                 {submitResult.message}
               </p>
               {submitResult.details && (
@@ -279,13 +292,10 @@ export default function EntradaDemandaPage() {
             !form.tipo_servico ||
             !form.descricao.trim() ||
             !form.endereco ||
-            !form.lat ||
-            !form.lng ||
             !form.criticidade ||
             !form.tipo_ocorrencia ||
             (form.tipo_ocorrencia === 'outros' && !form.tipo_ocorrencia_outro.trim()) ||
             geocoding ||
-            geocodeError !== '' ||
             submitting
           }
         >

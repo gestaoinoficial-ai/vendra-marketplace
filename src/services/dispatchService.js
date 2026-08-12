@@ -81,7 +81,8 @@ async function criarPropostas(osId, parceirosProximos) {
  */
 export async function dispatchOrdemServico(form, clienteId) {
   const ordem = await createOrdemServico(form, clienteId)
-  const parceirosProximos = await findParceirosProximos(form.lat, form.lng)
+  const parceirosProximos =
+    form.lat && form.lng ? await findParceirosProximos(form.lat, form.lng) : []
   const propostas = await criarPropostas(ordem.id, parceirosProximos)
 
   return {

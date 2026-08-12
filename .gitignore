@@ -8,3 +8,6 @@ dist-ssr
 *.log
 import-engenheiros.js
 engenheiros.xlsx
+
+# Local Netlify folder
+.netlify

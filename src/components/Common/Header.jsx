@@ -21,7 +21,6 @@ export default function Header({ onMenuClick }) {
       </div>
 
       <div className="flex items-center gap-4">
-        <span className="badge bg-gold text-navy text-[10px]">PROTÓTIPO - DEMONSTRAÇÃO</span>
         <button onClick={() => switchRole(role === 'admin' ? 'partner' : 'admin')} className="p-2 hover:bg-steel/10 rounded-lg">
           <User size={20} />
         </button>

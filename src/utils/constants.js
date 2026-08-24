@@ -11,18 +11,18 @@ export const COLORS = {
   bg: '#F2F4F7',
 }
 
-// Ordem = ordem real do ciclo de vida da OS. Cada etapa (exceto "pendente",
-// que já é coberta por data_criacao) tem uma coluna de timestamp própria,
-// gravada automaticamente quando o operador avança o status manualmente.
+// Fluxo simplificado (2026-08): só 2 ações manuais no operador —
+// Aceite (pendente -> aceito) e Concluído (aceito -> aceito_cliente).
+// 'relatorio_recebido' e 'enviado_cliente' seguem existindo no domínio do
+// banco (baixo custo manter) mas não são mais atingidos por clique manual.
 export const OS_STATUS = {
   pendente: { label: 'Pendente', color: 'steel', icon: '⚪' },
   aceito: { label: 'Aceito', color: 'blue', icon: '🔵', timestampField: 'data_aceita' },
   relatorio_recebido: { label: 'Relatório Recebido', color: 'purple', icon: '🟣', timestampField: 'relatorio_recebido_em' },
   enviado_cliente: { label: 'Enviado ao Cliente', color: 'amber', icon: '🟠', timestampField: 'enviado_cliente_em' },
   aceito_cliente: { label: 'Aceito pelo Cliente', color: 'success', icon: '✅', timestampField: 'aceito_cliente_em' },
+  cancelada: { label: 'Cancelada', color: 'danger', icon: '🚫', timestampField: 'cancelado_em' },
 }
-
-export const OS_STATUS_ORDER = Object.keys(OS_STATUS)
 
 export const PROPOSTA_STATUS = {
   enviada: { label: 'Pendente', color: 'amber', badge: '📋' },

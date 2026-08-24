@@ -1,23 +1,22 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, Loader2, MessageCircle, Paperclip, RefreshCw } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, MessageCircle, Paperclip, RefreshCw, Trash2, UserPlus } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import StatusBadge from '../../components/Common/StatusBadge'
 import Button from '../../components/Common/Button'
-import { CRITICIDADE_OPTIONS, OS_STATUS, OS_STATUS_ORDER, PROPOSTA_STATUS, TIPO_OCORRENCIA_OPTIONS } from '../../utils/constants'
+import { CRITICIDADE_OPTIONS, OS_STATUS, PROPOSTA_STATUS, TIPO_OCORRENCIA_OPTIONS } from '../../utils/constants'
 import { buildDispatchMessage, formatDate, optionLabel, whatsappLink } from '../../utils/formatters'
 
 const RELATORIO_BUCKET = 'relatorios-os'
 
+// Em Aberto -> aceite (parceiro ou indicação de terceiro) -> Ativas -> Concluído -> Concluídas
+const TAB_STATUS = { aberto: 'pendente', ativas: 'aceito', concluidas: 'aceito_cliente' }
+
 async function fetchDemandas(tab) {
-  let ordensQuery = supabase
+  const { data: ordens, error: ordensError } = await supabase
     .from('ordens_servico')
     .select('*')
+    .eq('status', TAB_STATUS[tab])
     .order('data_criacao', { ascending: false })
-
-  ordensQuery =
-    tab === 'concluidas' ? ordensQuery.eq('status', 'aceito_cliente') : ordensQuery.neq('status', 'aceito_cliente')
-
-  const { data: ordens, error: ordensError } = await ordensQuery
   if (ordensError) throw ordensError
 
   const clienteIds = [...new Set(ordens.map((o) => o.cliente_id).filter(Boolean))]
@@ -69,7 +68,10 @@ function tipoOcorrenciaLabel(os) {
     : optionLabel(TIPO_OCORRENCIA_OPTIONS, os.tipo_ocorrencia)
 }
 
-function ParceiroRow({ proposta, os }) {
+function ParceiroRow({ proposta, os, onAceitar }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
   const parceiro = proposta.parceiro
   const nome = parceiro?.nome_fantasia || parceiro?.nome_empresario || 'Parceiro removido'
 
@@ -85,69 +87,218 @@ function ParceiroRow({ proposta, os }) {
   })
   const link = whatsappLink(parceiro?.telefone, message)
 
+  // Confirmação real acontece por fora (WhatsApp/Cushman) — permite aceitar
+  // mesmo com o timer de 20min já vencido, ele é só referência visual.
+  const podeAceitar = proposta.status === 'enviada'
+
+  const handleAceitar = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await onAceitar(os, proposta)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-steel/10 px-3 py-2 text-sm">
-      <div className="min-w-[160px] flex-1">
-        <p className="font-medium text-navy">{nome}</p>
-        <p className="text-xs text-slate">
-          {proposta.distancia_km != null ? `${proposta.distancia_km.toFixed(1)} km` : 'Distância não disponível'}
-        </p>
+    <div className="rounded-lg bg-steel/10 px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-[160px] flex-1">
+          <p className="font-medium text-navy">{nome}</p>
+          <p className="text-xs text-slate">
+            {proposta.distancia_km != null ? `${proposta.distancia_km.toFixed(1)} km` : 'Distância não disponível'}
+          </p>
+        </div>
+
+        {link ? (
+          <a
+            href={link}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1 text-xs text-success hover:underline"
+          >
+            <MessageCircle size={13} />
+            {parceiro.telefone}
+          </a>
+        ) : (
+          <span className="text-xs text-slate">Sem telefone</span>
+        )}
+
+        <StatusBadge statusKey={proposalEffectiveStatus(proposta)} statusMap={PROPOSTA_STATUS} />
+
+        {podeAceitar && (
+          <Button variant="primary" className="px-3 py-1.5 text-xs" onClick={handleAceitar} disabled={busy}>
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+            Aceite
+          </Button>
+        )}
       </div>
-
-      {link ? (
-        <a
-          href={link}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-1 text-xs text-success hover:underline"
-        >
-          <MessageCircle size={13} />
-          {parceiro.telefone}
-        </a>
-      ) : (
-        <span className="text-xs text-slate">Sem telefone</span>
-      )}
-
-      <StatusBadge statusKey={proposalEffectiveStatus(proposta)} statusMap={PROPOSTA_STATUS} />
+      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>
   )
 }
 
-function OSCard({ os, onAdvance, onAttachRelatorio }) {
+function IndicacaoTerceiro({ os, onAceitar }) {
+  const [open, setOpen] = useState(false)
+  const [nome, setNome] = useState('')
+  const [observacao, setObservacao] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1 text-xs text-slate hover:text-navy"
+      >
+        <UserPlus size={13} />
+        Responsável não é da Rede Técnica (indicação/terceiro)
+      </button>
+    )
+  }
+
+  const handleSubmit = async () => {
+    if (!nome.trim()) {
+      setError('Informe o nome do responsável.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      await onAceitar(os, nome.trim(), observacao.trim())
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-steel/30 p-3">
+      <input
+        type="text"
+        className="input text-sm"
+        placeholder="Nome do responsável"
+        value={nome}
+        onChange={(e) => setNome(e.target.value)}
+        disabled={busy}
+      />
+      <input
+        type="text"
+        className="input text-sm"
+        placeholder="Observação (opcional)"
+        value={observacao}
+        onChange={(e) => setObservacao(e.target.value)}
+        disabled={busy}
+      />
+      <div className="flex gap-2">
+        <Button variant="primary" className="px-3 py-1.5 text-xs" onClick={handleSubmit} disabled={busy}>
+          {busy && <Loader2 size={13} className="animate-spin" />}
+          Registrar e aceitar
+        </Button>
+        <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setOpen(false)} disabled={busy}>
+          Cancelar
+        </Button>
+      </div>
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  )
+}
+
+function ExcluirOs({ os, onCancelar }) {
+  const [open, setOpen] = useState(false)
+  const [motivo, setMotivo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-xs text-danger hover:underline">
+        <Trash2 size={13} />
+        Excluir OS
+      </button>
+    )
+  }
+
+  const handleConfirm = async () => {
+    if (!motivo.trim()) {
+      setError('Informe o motivo da exclusão.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      await onCancelar(os, motivo.trim())
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-danger/30 bg-danger/5 p-3">
+      <textarea
+        className="input min-h-16 text-sm"
+        placeholder="Motivo da exclusão (ex: Cushman declinou, sem retorno)"
+        value={motivo}
+        onChange={(e) => setMotivo(e.target.value)}
+        disabled={busy}
+      />
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          className="border-danger px-3 py-1.5 text-xs text-danger"
+          onClick={handleConfirm}
+          disabled={busy}
+        >
+          {busy && <Loader2 size={13} className="animate-spin" />}
+          Confirmar exclusão
+        </Button>
+        <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setOpen(false)} disabled={busy}>
+          Voltar
+        </Button>
+      </div>
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  )
+}
+
+function OSCard({ os, onAceitarParceiro, onAceitarTerceiro, onConcluir, onCancelar, onAttachRelatorio }) {
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
 
-  const currentIndex = OS_STATUS_ORDER.indexOf(os.status)
-  const nextStatus =
-    currentIndex >= 0 && currentIndex < OS_STATUS_ORDER.length - 1 ? OS_STATUS_ORDER[currentIndex + 1] : null
+  const responsavelLabel = os.responsavel_nome
+    ? os.responsavel_parceiro_id
+      ? os.responsavel_nome
+      : `${os.responsavel_nome} (indicação/terceiro)`
+    : null
 
-  const handleAdvanceClick = async () => {
-    if (!nextStatus) return
-    setActionError('')
-
-    if (nextStatus === 'relatorio_recebido') {
-      if (!file) {
-        setActionError('Selecione o arquivo do relatório antes de avançar.')
-        return
-      }
-      setBusy(true)
-      try {
-        await onAttachRelatorio(os, file)
-      } catch (err) {
-        setActionError(err.message)
-      } finally {
-        setBusy(false)
-      }
+  const handleAttach = async () => {
+    if (!file) {
+      setActionError('Selecione o arquivo do relatório.')
       return
     }
-
     setBusy(true)
+    setActionError('')
     try {
-      await onAdvance(os, nextStatus)
+      await onAttachRelatorio(os, file)
+      setFile(null)
     } catch (err) {
       setActionError(err.message)
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleConcluir = async () => {
+    setBusy(true)
+    setActionError('')
+    try {
+      await onConcluir(os)
+    } catch (err) {
+      setActionError(err.message)
       setBusy(false)
     }
   }
@@ -167,6 +318,13 @@ function OSCard({ os, onAdvance, onAttachRelatorio }) {
       </p>
       <p className="mb-4 text-xs text-slate">🔧 {tipoOcorrenciaLabel(os)}</p>
 
+      {responsavelLabel && (
+        <p className="mb-4 text-sm text-navy">
+          👷 Responsável: <span className="font-medium">{responsavelLabel}</span>
+          {os.responsavel_observacao && <span className="text-xs text-slate"> — {os.responsavel_observacao}</span>}
+        </p>
+      )}
+
       {os.relatorio_url && (
         <a
           href={os.relatorio_url}
@@ -179,36 +337,49 @@ function OSCard({ os, onAdvance, onAttachRelatorio }) {
         </a>
       )}
 
-      <div className="border-t border-steel/30 pt-3">
-        <p className="mb-2 text-xs font-semibold uppercase text-slate">
-          Parceiros notificados ({os.propostas.length})
-        </p>
+      {os.status === 'pendente' && (
+        <div className="space-y-3 border-t border-steel/30 pt-3">
+          <p className="text-xs font-semibold uppercase text-slate">
+            Parceiros notificados ({os.propostas.length})
+          </p>
 
-        {os.propostas.length === 0 ? (
-          <p className="text-sm text-slate">Nenhum parceiro foi notificado para essa OS.</p>
-        ) : (
-          <div className="space-y-2">
-            {os.propostas.map((proposta) => (
-              <ParceiroRow key={proposta.id} proposta={proposta} os={os} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {nextStatus && (
-        <div className="mt-3 border-t border-steel/30 pt-3 flex flex-wrap items-center gap-2">
-          {nextStatus === 'relatorio_recebido' && (
-            <input
-              type="file"
-              className="max-w-[220px] text-xs"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
+          {os.propostas.length === 0 ? (
+            <p className="text-sm text-slate">Nenhum parceiro foi notificado para essa OS.</p>
+          ) : (
+            <div className="space-y-2">
+              {os.propostas.map((proposta) => (
+                <ParceiroRow key={proposta.id} proposta={proposta} os={os} onAceitar={onAceitarParceiro} />
+              ))}
+            </div>
           )}
-          <Button variant="secondary" onClick={handleAdvanceClick} disabled={busy}>
+
+          <IndicacaoTerceiro os={os} onAceitar={onAceitarTerceiro} />
+        </div>
+      )}
+
+      {os.status === 'aceito' && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-steel/30 pt-3">
+          <input
+            type="file"
+            className="max-w-[220px] text-xs"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          <Button variant="secondary" onClick={handleAttach} disabled={busy || !file}>
             {busy && <Loader2 size={14} className="animate-spin" />}
-            Avançar para: {OS_STATUS[nextStatus].label}
+            Anexar relatório
           </Button>
-          {actionError && <p className="w-full text-xs text-danger">{actionError}</p>}
+          <Button variant="primary" onClick={handleConcluir} disabled={busy}>
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            Concluído
+          </Button>
+        </div>
+      )}
+
+      {actionError && <p className="mt-2 text-xs text-danger">{actionError}</p>}
+
+      {(os.status === 'pendente' || os.status === 'aceito') && (
+        <div className="mt-3 border-t border-steel/30 pt-3">
+          <ExcluirOs os={os} onCancelar={onCancelar} />
         </div>
       )}
     </div>
@@ -216,7 +387,7 @@ function OSCard({ os, onAdvance, onAttachRelatorio }) {
 }
 
 export default function DemandasPage() {
-  const [tab, setTab] = useState('ativas')
+  const [tab, setTab] = useState('aberto')
   const [ordens, setOrdens] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -238,12 +409,86 @@ export default function DemandasPage() {
     loadData()
   }, [tab])
 
-  async function advanceStatus(os, nextStatus) {
-    const patch = { status: nextStatus }
-    const timestampField = OS_STATUS[nextStatus]?.timestampField
-    if (timestampField) patch[timestampField] = new Date().toISOString()
+  async function aceitarParceiro(os, proposta) {
+    const nomeParceiro = proposta.parceiro?.nome_fantasia || proposta.parceiro?.nome_empresario || null
 
-    const { error: updateError } = await supabase.from('ordens_servico').update(patch).eq('id', os.id)
+    const { error: acceptError } = await supabase
+      .from('propostas_os')
+      .update({ status: 'aceita', respondida_em: new Date().toISOString() })
+      .eq('id', proposta.id)
+    if (acceptError) throw new Error(acceptError.message)
+
+    const outrasPendentes = os.propostas.filter((p) => p.id !== proposta.id && p.status === 'enviada').map((p) => p.id)
+    if (outrasPendentes.length > 0) {
+      const { error: recusaError } = await supabase
+        .from('propostas_os')
+        .update({
+          status: 'recusada',
+          respondida_em: new Date().toISOString(),
+          motivo_recusa: 'Outro parceiro foi selecionado para a OS',
+        })
+        .in('id', outrasPendentes)
+      if (recusaError) throw new Error(recusaError.message)
+    }
+
+    const { error: osError } = await supabase
+      .from('ordens_servico')
+      .update({
+        status: 'aceito',
+        data_aceita: new Date().toISOString(),
+        responsavel_parceiro_id: proposta.parceiro_id,
+        responsavel_nome: nomeParceiro,
+        responsavel_observacao: null,
+      })
+      .eq('id', os.id)
+    if (osError) throw new Error(osError.message)
+
+    await loadData()
+  }
+
+  async function aceitarTerceiro(os, nome, observacao) {
+    const pendentes = os.propostas.filter((p) => p.status === 'enviada').map((p) => p.id)
+    if (pendentes.length > 0) {
+      const { error: recusaError } = await supabase
+        .from('propostas_os')
+        .update({
+          status: 'recusada',
+          respondida_em: new Date().toISOString(),
+          motivo_recusa: 'OS atribuída a indicação/terceiro fora da Rede Técnica',
+        })
+        .in('id', pendentes)
+      if (recusaError) throw new Error(recusaError.message)
+    }
+
+    const { error: osError } = await supabase
+      .from('ordens_servico')
+      .update({
+        status: 'aceito',
+        data_aceita: new Date().toISOString(),
+        responsavel_parceiro_id: null,
+        responsavel_nome: nome,
+        responsavel_observacao: observacao || null,
+      })
+      .eq('id', os.id)
+    if (osError) throw new Error(osError.message)
+
+    await loadData()
+  }
+
+  async function concluirOs(os) {
+    const { error: updateError } = await supabase
+      .from('ordens_servico')
+      .update({ status: 'aceito_cliente', aceito_cliente_em: new Date().toISOString() })
+      .eq('id', os.id)
+    if (updateError) throw new Error(updateError.message)
+    await loadData()
+  }
+
+  async function cancelarOs(os, motivo) {
+    const { error: updateError } = await supabase
+      .from('ordens_servico')
+      .update({ status: 'cancelada', motivo_cancelamento: motivo, cancelado_em: new Date().toISOString() })
+      .eq('id', os.id)
     if (updateError) throw new Error(updateError.message)
     await loadData()
   }
@@ -257,15 +502,20 @@ export default function DemandasPage() {
 
     const { error: updateError } = await supabase
       .from('ordens_servico')
-      .update({
-        status: 'relatorio_recebido',
-        relatorio_recebido_em: new Date().toISOString(),
-        relatorio_url: urlData.publicUrl,
-      })
+      .update({ relatorio_recebido_em: new Date().toISOString(), relatorio_url: urlData.publicUrl })
       .eq('id', os.id)
     if (updateError) throw new Error(updateError.message)
     await loadData()
   }
+
+  const TABS = [
+    { key: 'aberto', label: 'Em Aberto', activeClass: 'border-gold text-gold' },
+    { key: 'ativas', label: 'Ativas', activeClass: 'border-blue text-blue' },
+    { key: 'concluidas', label: 'Concluídas', activeClass: 'border-success text-success' },
+  ]
+
+  const emptyLabel =
+    tab === 'aberto' ? 'Nenhuma OS em aberto.' : tab === 'ativas' ? 'Nenhuma OS ativa no momento.' : 'Nenhuma OS concluída.'
 
   return (
     <div className="space-y-4">
@@ -283,22 +533,17 @@ export default function DemandasPage() {
       </div>
 
       <div className="flex gap-4 border-b border-steel/30">
-        <button
-          onClick={() => setTab('ativas')}
-          className={`px-2 pb-2 text-sm font-medium transition-colors ${
-            tab === 'ativas' ? 'border-b-2 border-gold text-gold' : 'text-slate hover:text-navy'
-          }`}
-        >
-          Ativas
-        </button>
-        <button
-          onClick={() => setTab('concluidas')}
-          className={`px-2 pb-2 text-sm font-medium transition-colors ${
-            tab === 'concluidas' ? 'border-b-2 border-success text-success' : 'text-slate hover:text-navy'
-          }`}
-        >
-          Concluídas
-        </button>
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-2 pb-2 text-sm font-medium transition-colors ${
+              tab === t.key ? `border-b-2 ${t.activeClass}` : 'text-slate hover:text-navy'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {loading && ordens.length === 0 && (
@@ -316,14 +561,20 @@ export default function DemandasPage() {
       )}
 
       {!loading && !error && ordens.length === 0 && (
-        <div className="card p-12 text-center text-slate">
-          {tab === 'concluidas' ? 'Nenhuma OS concluída.' : 'Nenhuma OS ativa encontrada.'}
-        </div>
+        <div className="card p-12 text-center text-slate">{emptyLabel}</div>
       )}
 
       <div className="space-y-4">
         {ordens.map((os) => (
-          <OSCard key={os.id} os={os} onAdvance={advanceStatus} onAttachRelatorio={attachRelatorio} />
+          <OSCard
+            key={os.id}
+            os={os}
+            onAceitarParceiro={aceitarParceiro}
+            onAceitarTerceiro={aceitarTerceiro}
+            onConcluir={concluirOs}
+            onCancelar={cancelarOs}
+            onAttachRelatorio={attachRelatorio}
+          />
         ))}
       </div>
     </div>

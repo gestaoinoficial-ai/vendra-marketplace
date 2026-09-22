@@ -84,6 +84,7 @@ function ParceiroRow({ proposta, os, onAceitar }) {
     criticidadeLabel: optionLabel(CRITICIDADE_OPTIONS, os.criticidade),
     tipoOcorrenciaLabel: tipoOcorrenciaLabel(os),
     descricao: os.descricao,
+    portalUrl: `${window.location.origin}/login`,
   })
   const link = whatsappLink(parceiro?.telefone, message)
 
@@ -409,40 +410,15 @@ export default function DemandasPage() {
     loadData()
   }, [tab])
 
+  // Aceite unificado: mesma função de banco (aceitar_proposta) usada aqui
+  // (admin, role anon) e no Portal do Parceiro (role authenticated). Trava
+  // a proposta e a OS com FOR UPDATE dentro da função, então se os dois
+  // lados tentarem aceitar quase ao mesmo tempo, o segundo recebe um erro
+  // claro ("já foi atribuída a outro parceiro") em vez de sobrescrever o
+  // resultado do primeiro.
   async function aceitarParceiro(os, proposta) {
-    const nomeParceiro = proposta.parceiro?.nome_fantasia || proposta.parceiro?.nome_empresario || null
-
-    const { error: acceptError } = await supabase
-      .from('propostas_os')
-      .update({ status: 'aceita', respondida_em: new Date().toISOString() })
-      .eq('id', proposta.id)
-    if (acceptError) throw new Error(acceptError.message)
-
-    const outrasPendentes = os.propostas.filter((p) => p.id !== proposta.id && p.status === 'enviada').map((p) => p.id)
-    if (outrasPendentes.length > 0) {
-      const { error: recusaError } = await supabase
-        .from('propostas_os')
-        .update({
-          status: 'recusada',
-          respondida_em: new Date().toISOString(),
-          motivo_recusa: 'Outro parceiro foi selecionado para a OS',
-        })
-        .in('id', outrasPendentes)
-      if (recusaError) throw new Error(recusaError.message)
-    }
-
-    const { error: osError } = await supabase
-      .from('ordens_servico')
-      .update({
-        status: 'aceito',
-        data_aceita: new Date().toISOString(),
-        responsavel_parceiro_id: proposta.parceiro_id,
-        responsavel_nome: nomeParceiro,
-        responsavel_observacao: null,
-      })
-      .eq('id', os.id)
-    if (osError) throw new Error(osError.message)
-
+    const { error } = await supabase.rpc('aceitar_proposta', { p_proposta_id: proposta.id })
+    if (error) throw new Error(error.message)
     await loadData()
   }
 

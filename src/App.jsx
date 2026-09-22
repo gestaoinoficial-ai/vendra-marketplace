@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+import ProtectedRoute from './components/Common/ProtectedRoute'
 import VendraLayout from './components/Layout/VendraLayout'
 import ParceiroLayout from './components/Layout/ParceiroLayout'
 import DashboardVendraPage from './pages/vendra/DashboardVendraPage'
@@ -11,16 +13,23 @@ import BibliotecaPage from './pages/vendra/BibliotecaPage'
 import DecisoesMVPPage from './pages/vendra/DecisoesMVPPage'
 import ClientesPage from './pages/vendra/ClientesPage'
 import PortalParceiroPage from './pages/vendra/PortalParceiroPage'
+import LoginPage from './pages/parceiro/LoginPage'
 import PropostasParceirosPage from './pages/parceiro/PropostasParceirosPage'
 import MeusDadosPage from './pages/parceiro/MeusDadosPage'
 
 export default function App() {
-  const { role } = useAuthStore()
+  const init = useAuthStore((state) => state.init)
+
+  useEffect(() => {
+    init()
+  }, [init])
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/vendra/dashboard" replace />} />
+
+        <Route path="/login" element={<LoginPage />} />
 
         <Route element={<VendraLayout />}>
           <Route path="/vendra/dashboard" element={<DashboardVendraPage />} />
@@ -34,7 +43,7 @@ export default function App() {
           <Route path="/vendra/decisoes-mvp" element={<DecisoesMVPPage />} />
         </Route>
 
-        <Route element={<ParceiroLayout />}>
+        <Route element={<ProtectedRoute><ParceiroLayout /></ProtectedRoute>}>
           <Route path="/parceiro/propostas" element={<PropostasParceirosPage />} />
           <Route path="/parceiro/meus-dados" element={<MeusDadosPage />} />
         </Route>

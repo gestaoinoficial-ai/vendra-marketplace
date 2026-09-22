@@ -45,6 +45,7 @@ export function buildDispatchMessage({
   criticidadeLabel,
   tipoOcorrenciaLabel,
   descricao,
+  portalUrl,
 }) {
   const lines = [
     `Olá ${parceiroNome}! Temos uma nova demanda para você:`,
@@ -66,6 +67,11 @@ export function buildDispatchMessage({
       ? 'Você tem 20 minutos para confirmar disponibilidade. Pode atender?'
       : 'Por favor, confirme sua disponibilidade assim que possível.'
   )
+
+  if (portalUrl) {
+    lines.push('')
+    lines.push(`Confirme direto pelo Portal do Parceiro: ${portalUrl}`)
+  }
 
   return lines.join('\n')
 }

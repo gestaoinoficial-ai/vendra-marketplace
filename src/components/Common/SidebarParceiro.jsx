@@ -1,5 +1,6 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ClipboardList, User, BarChart3, MessageCircle, LogOut } from 'lucide-react'
+import { useAuthStore } from '../../store/authStore'
 
 const MENU_ITEMS = [
   { to: '/parceiro/propostas', label: 'Propostas', icon: ClipboardList },
@@ -10,7 +11,14 @@ const MENU_ITEMS = [
 
 export default function SidebarParceiro({ open, onClose }) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const signOut = useAuthStore((state) => state.signOut)
   const isActive = (path) => location.pathname === path
+
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-navy text-white transition-transform duration-300 lg:static lg:translate-x-0 ${
@@ -28,7 +36,7 @@ export default function SidebarParceiro({ open, onClose }) {
         <nav className="flex-1 p-4 space-y-1">
           {MENU_ITEMS.map(({ to, label, icon: Icon }) => (
             <Link
-              key={to}
+              key={label}
               to={to}
               onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -42,7 +50,10 @@ export default function SidebarParceiro({ open, onClose }) {
         </nav>
 
         <div className="p-4 border-t border-white/10">
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-steel hover:text-danger hover:bg-danger/10">
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-steel hover:text-danger hover:bg-danger/10"
+          >
             <LogOut size={18} />
             Sair
           </button>

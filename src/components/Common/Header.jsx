@@ -1,9 +1,6 @@
 import { Menu, Search, User } from 'lucide-react'
-import { useAuthStore } from '../../store/authStore'
 
 export default function Header({ onMenuClick }) {
-  const { role, switchRole } = useAuthStore()
-
   return (
     <header className="border-b border-steel/20 bg-white px-6 py-4 flex items-center justify-between h-16">
       <div className="flex items-center gap-4">
@@ -21,7 +18,7 @@ export default function Header({ onMenuClick }) {
       </div>
 
       <div className="flex items-center gap-4">
-        <button onClick={() => switchRole(role === 'admin' ? 'partner' : 'admin')} className="p-2 hover:bg-steel/10 rounded-lg">
+        <button className="p-2 hover:bg-steel/10 rounded-lg">
           <User size={20} />
         </button>
       </div>

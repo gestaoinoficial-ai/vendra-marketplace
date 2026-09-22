@@ -15,6 +15,7 @@ import ClientesPage from './pages/vendra/ClientesPage'
 import PortalParceiroPage from './pages/vendra/PortalParceiroPage'
 import LoginPage from './pages/parceiro/LoginPage'
 import PropostasParceirosPage from './pages/parceiro/PropostasParceirosPage'
+import PropostasParceirosDemoPage from './pages/parceiro/PropostasParceirosDemoPage'
 import MeusDadosPage from './pages/parceiro/MeusDadosPage'
 
 export default function App() {
@@ -46,6 +47,8 @@ export default function App() {
         <Route element={<ProtectedRoute><ParceiroLayout /></ProtectedRoute>}>
           <Route path="/parceiro/propostas" element={<PropostasParceirosPage />} />
           <Route path="/parceiro/meus-dados" element={<MeusDadosPage />} />
+          {/* Peça de demonstração pra apresentação — não fica no menu, só acessível pela URL direta. */}
+          <Route path="/parceiro/demo" element={<PropostasParceirosDemoPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

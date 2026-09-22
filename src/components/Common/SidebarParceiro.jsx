@@ -39,7 +39,7 @@ export default function SidebarParceiro({ open, onClose }) {
               key={label}
               to={to}
               onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
                 isActive(to) ? 'bg-gold text-navy' : 'text-steel hover:text-white hover:bg-white/5'
               }`}
             >
@@ -52,7 +52,7 @@ export default function SidebarParceiro({ open, onClose }) {
         <div className="p-4 border-t border-white/10">
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-steel hover:text-danger hover:bg-danger/10"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm text-steel hover:bg-danger/10 hover:text-danger"
           >
             <LogOut size={18} />
             Sair

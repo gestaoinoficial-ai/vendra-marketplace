@@ -229,10 +229,10 @@ export default function PropostasParceirosPage() {
         </div>
       )}
 
-      <div className="border-b border-steel/30 flex gap-4">
+      <div className="border-b border-steel/30 flex gap-1 overflow-x-auto sm:gap-4">
         <button
           onClick={() => setTab('pendentes')}
-          className={`py-2 px-4 text-sm font-medium transition-colors ${
+          className={`shrink-0 whitespace-nowrap px-3 py-3 text-sm font-medium transition-colors sm:px-4 sm:py-2 ${
             tab === 'pendentes' ? 'border-b-2 border-gold text-gold' : 'text-slate hover:text-navy'
           }`}
         >
@@ -240,7 +240,7 @@ export default function PropostasParceirosPage() {
         </button>
         <button
           onClick={() => setTab('aceitas')}
-          className={`py-2 px-4 text-sm font-medium transition-colors ${
+          className={`shrink-0 whitespace-nowrap px-3 py-3 text-sm font-medium transition-colors sm:px-4 sm:py-2 ${
             tab === 'aceitas' ? 'border-b-2 border-success text-success' : 'text-slate hover:text-navy'
           }`}
         >
@@ -248,11 +248,11 @@ export default function PropostasParceirosPage() {
         </button>
         <button
           onClick={() => setTab('recusadas')}
-          className={`py-2 px-4 text-sm font-medium transition-colors ${
+          className={`shrink-0 whitespace-nowrap px-3 py-3 text-sm font-medium transition-colors sm:px-4 sm:py-2 ${
             tab === 'recusadas' ? 'border-b-2 border-danger text-danger' : 'text-slate hover:text-navy'
           }`}
         >
-          ❌ Recusadas/Expiradas ({recusadas.length})
+          ❌ Recusadas ({recusadas.length})
         </button>
       </div>
 

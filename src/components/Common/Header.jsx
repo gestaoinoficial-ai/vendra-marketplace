@@ -4,7 +4,10 @@ export default function Header({ onMenuClick }) {
   return (
     <header className="border-b border-steel/20 bg-white px-6 py-4 flex items-center justify-between h-16">
       <div className="flex items-center gap-4">
-        <button onClick={onMenuClick} className="p-2 hover:bg-steel/10 rounded-lg lg:hidden">
+        <button
+          onClick={onMenuClick}
+          className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-steel/10 lg:hidden"
+        >
           <Menu size={20} />
         </button>
         <h2 className="font-rajdhani text-xl font-semibold text-navy">Dashboard</h2>

@@ -18,7 +18,7 @@ h1, h2, h3, h4, .font-rajdhani {
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium text-sm transition-all duration-300 disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium text-sm transition-all duration-300 disabled:opacity-50;
   }
 
   .btn-primary {
